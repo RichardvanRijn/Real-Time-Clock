@@ -6,8 +6,10 @@
 */
 #include <inttypes.h>
 #include <compat/twi.h>
+#include <avr/io.h>
 
 #include "I2C.h"
+//#include <vector>
 
 #ifndef F_CPU
 #define F_CPU 4000000UL
@@ -28,7 +30,7 @@ void I2C::init(void)
 	 TWBR = ((F_CPU/SCL_CLOCK)-16)/2;  /* must be > 10 for stable operation */
 }
 
-void I2C::write_address(unsigned char newaddress)
+void I2C::new_address(unsigned char newaddress)
 {
 	address = newaddress;
 }
@@ -36,20 +38,14 @@ void I2C::write_address(unsigned char newaddress)
 unsigned char I2C::start(unsigned char RW)
 {
 	uint8_t   twst;
-	// send START condition
-	TWCR = (1<<TWINT) | (1<<TWSTA) | (1<<TWEN);
-	// wait until transmission completed
-	while(!(TWCR & (1<<TWINT)));
-	// check value of TWI Status Register. Mask prescaler bits.
-	twst = TW_STATUS & 0xF8;
+	TWCR = (1<<TWINT) | (1<<TWSTA) | (1<<TWEN);				// send START condition
+	while(!(TWCR & (1<<TWINT)));							// wait until transmission completed
+	twst = TW_STATUS & 0xF8;								// check value of TWI Status Register. Mask prescaler bits.
 	if ( (twst != TW_START) && (twst != TW_REP_START)) return 1;
-	// send device address
-	TWDR = address + RW;
+	TWDR = address + RW;									// send device address
 	TWCR = (1<<TWINT) | (1<<TWEN);
-	// wail until transmission completed and ACK/NACK has been received
-	while(!(TWCR & (1<<TWINT)));
-	// check value of TWI Status Register. Mask prescaler bits.
-	twst = TW_STATUS & 0xF8;
+	while(!(TWCR & (1<<TWINT)));							// wail until transmission completed and ACK/NACK has been received
+	twst = TW_STATUS & 0xF8;								// check value of TWI Status Register. Mask prescaler bits.
 	if ( (twst != TW_MT_SLA_ACK) && (twst != TW_MR_SLA_ACK) ) return 1;
 	return 0;
 }
@@ -94,10 +90,8 @@ unsigned char I2C::write(unsigned char data)
 	uint8_t   twst;
 	TWDR = data;														// send data to the previously addressed device
 	TWCR = (1<<TWINT) | (1<<TWEN);
-	while(!(TWCR & (1<<TWINT)));										// wait until transmission completed
-	
-	// check value of TWI Status Register. Mask prescaler bits
-	twst = TW_STATUS & 0xF8;											
+	while(!(TWCR & (1<<TWINT))){}										// wait until transmission completed
+	twst = TW_STATUS & 0xF8;											// check value of TWI Status Register. Mask prescaler bits
 	if( twst != TW_MT_DATA_ACK) return 1;
 	return 0;
 }
@@ -121,7 +115,29 @@ unsigned char I2C::read_address(void)
 	return address;
 }
 
+void I2C::readXBytes(unsigned char data[], unsigned char amount, unsigned char startAddress)	//data[x] : x >= amount
+{
+//	if ((sizeof (data)/sizeof (data[0])) >= amount){
+		write(startAddress);
+		rep_start(I2C_READ);
+		for (uint8_t i = 0; i < amount - 1; i++){
+			data[i] = readAck();
+		}
+		data[amount - 1] = readNak();
+//	}
+}
+
+void I2C::writeXBytes(unsigned char data[], unsigned int amount)	//data[x] : x >= amount
+{
+	for (uint8_t i = 0; i <= amount; i++){
+		write(data[i]);	
+	}
+}
+
 // default destructor
 I2C::~I2C()
 {
 } //~I2C
+
+
+

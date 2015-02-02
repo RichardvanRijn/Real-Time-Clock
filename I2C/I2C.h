@@ -5,11 +5,10 @@
 * Author: Richard
 */
 #include <avr/io.h>
+//#include <vector>
 
 #ifndef __I2C_H__
 #define __I2C_H__
-
-
 
 class I2C
 {
@@ -33,24 +32,23 @@ public:
 	unsigned char rep_start(unsigned char RW);
 	void start_wait(unsigned char RW);
 	void stop(void);
-		
-	unsigned char write(unsigned char data);
-		
-	unsigned char readAck(void);
-	unsigned char readNak(void);
-		
-	unsigned char i2c_read(unsigned char ack);
-	#define i2c_read(ack)  (ack) ? i2c_readAck() : i2c_readNak();
-	unsigned char read_address(void);
-	void write_address(unsigned char newaddress);
 	
+	unsigned char read_address(void);
+	void new_address(unsigned char newaddress);
+	
+	void readXBytes(unsigned char data[], unsigned char amount, unsigned char startAddress);
+	
+	void writeXBytes(unsigned char data[], unsigned int amount);
+
 	~I2C();
 protected:
 private:
 	I2C( const I2C &c );
 	I2C& operator=( const I2C &c );
 	
-
+	unsigned char write(unsigned char data);
+	unsigned char readAck(void);
+	unsigned char readNak(void);
 	
 }; //I2C
 

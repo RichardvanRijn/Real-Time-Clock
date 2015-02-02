@@ -11,14 +11,25 @@
 
 #define address 0xD0
 
-char buffer[30];
-unsigned char time[7];
-unsigned char temp;
+unsigned char bcdToDec(unsigned char val)
+{
+	return ((val/16*10) + (val%16) );
+}
 
-//unsigned char address=0xD0;
+unsigned char decToBcd(unsigned char val)
+{
+	return ((val/10*16) + (val%10) );
+}
+
+char buffer[17];
+unsigned char time[7];
+unsigned char data[7];
+unsigned char timeIn[8] {0x00,	 decToBcd(0), decToBcd(0), decToBcd(0), decToBcd(0),	 decToBcd(0), decToBcd(0), decToBcd(0),};
+//	 Address,Seconds,	  Minutes,	   Hours,	    Day of the week, Date,		  month,	   Year.
 
 int main(void)
 {
+	DDRD = 0x00;
 	I2C TWI(address);
 	lcd_init();
 	lcd_cursor(false, false);							//  cursor off
@@ -36,31 +47,40 @@ int main(void)
 		}
 	else 
 	{
-		TWI.stop();
+/*		TWI.stop();
 		TWI.start_wait(I2C_WRITE);
-		TWI.write(0x00);						//location
-		TWI.write(0x80);						//Seconds	Bit 7 stops the clock
-		TWI.write(0x00);						//Minutes
-		TWI.write(0x03);						//Hours bit 6 zero = 24H
-		TWI.write(0x00);						//Day of the week
-		TWI.write(0x00);						//Date
-		TWI.write(0x00);						//month
-		TWI.write(0x00);						//Year	00-99
+		TWI.writeXBytes(timeIn,8);
 		TWI.stop();
+*/
 		while(1)
 		{
-			TWI.start_wait(I2C_WRITE);			// set device address and write mode
-			TWI.write(0x00);							// write address = 0
-			TWI.rep_start(I2C_READ);			// set device address and read mode
-			time[0] = TWI.readAck();                    // read one byte
-			time[1] = TWI.readAck();
-			time[2] = TWI.readAck();
-			time[3] = TWI.readAck();
-			time[4] = TWI.readAck();
-			time[5] = TWI.readAck();
-			time[6] = TWI.readNak();			TWI.stop();
-			_delay_ms(800);
+			TWI.start_wait(I2C_WRITE);			// set device address and write mode	
+			TWI.readXBytes(data,7,0x00);
+			TWI.stop();
+			for (uint8_t i = 0; i <= 7 ; i++)
+			{
+				time[i] = bcdToDec(data[i]);
+			}
+			lcd_home();
+			snprintf(buffer, sizeof buffer,"%d:",time[2]);
+			lcd_puts(buffer);
+			lcd_goto(0,3);
+			snprintf(buffer, sizeof buffer,"%d:",time[1]);
+			lcd_puts(buffer);
+			lcd_goto(0,6);
+			snprintf(buffer, sizeof buffer,"%d ",time[0]);
+			lcd_puts(buffer);
+			lcd_goto(1,0);
+			snprintf(buffer, sizeof buffer,"%d-",time[4]);
+			lcd_puts(buffer);
+			lcd_goto(1,3);
+			snprintf(buffer, sizeof buffer,"%d-",time[5]);
+			lcd_puts(buffer);
+			lcd_goto(1,6);
+			snprintf(buffer, sizeof buffer,"%d ",time[6]);
+			lcd_puts(buffer);
+			_delay_ms(1000);
+			TWI.read(0x00);
 		}
 	}
 }
-
