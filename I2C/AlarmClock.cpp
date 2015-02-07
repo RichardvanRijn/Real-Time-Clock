@@ -11,8 +11,9 @@
 #define address 0xD0
 
 char buffer[17];
-unsigned char time[7];
+unsigned char time[13];
 unsigned char data[7];
+unsigned char temp;
 
 I2C TWI(address);
 
@@ -33,29 +34,17 @@ unsigned char decToBcd(unsigned char val)
 	return ((val/10*16) + (val%10) );
 }
 
-//unsigned char timeIn[8] {0x00,	 decToBcd(0), decToBcd(0), decToBcd(0), decToBcd(0),	 decToBcd(0), decToBcd(0), decToBcd(0)};
+unsigned char timeIn[8] = {0x00,	 decToBcd(30), decToBcd(41), decToBcd(17), decToBcd(5),	 decToBcd(6), decToBcd(2), decToBcd(15)};
 //						   Address	,Seconds,	  Minutes,	   Hours,	    Day of the week, Date,		  month,	   Year.
 
 void writeScreen(void)
 {
 	lcd_home();
-	snprintf(buffer, sizeof buffer,"%d:",time[2]);
-	lcd_puts(buffer);
-	lcd_goto(0,3);
-	snprintf(buffer, sizeof buffer,"%d:",time[1]);
-	lcd_puts(buffer);
-	lcd_goto(0,6);
-	snprintf(buffer, sizeof buffer,"%d ",time[0]);
+	snprintf(buffer, sizeof buffer, "%d%d:%d%d:%d%d",time[5],time[4],time[3],time[2],time[1],time[0]);
 	lcd_puts(buffer);
 	lcd_goto(1,0);
-	snprintf(buffer, sizeof buffer,"%d-",time[4]);
+	snprintf(buffer, sizeof buffer, "%d%d:%d%d:%d%d",time[8],time[7],time[10],time[9],time[12],time[11]);
 	lcd_puts(buffer);
-	lcd_goto(1,3);
-	snprintf(buffer, sizeof buffer,"%d-",time[5]);
-	lcd_puts(buffer);
-	lcd_goto(1,6);
-	snprintf(buffer, sizeof buffer,"%d ",time[6]);
-	lcd_puts(buffer);	
 }
 
 void changeTime(void)
@@ -73,10 +62,21 @@ ISR(TIMER0_OVF_vect) {
 		TWI.start_wait(I2C_WRITE);			// set device address and write mode
 		TWI.readXBytes(data,7,0x00);
 		TWI.stop();
-		for (uint8_t i = 0; i <= 7 ; i++)
+		for (uint8_t i = 0, j = 0; i <= 6 ; i++, j++)
 		{
-			time[i] = bcdToDec(data[i]);
+			if ( i != 3 )
+			{
+				time[j] = bcdToDec((data[i] & 0x0F));
+				time[j + 1] = bcdToDec(((data[i] >> 4) & 0x0F));
+//				time[i] = bcdToDec(data[i]);
+				j++;
+			}
+			else
+			{
+				time[j] = bcdToDec(data[i]);
+			}
 		}
+		
 		x = 0;
 	}
 	else
@@ -106,11 +106,11 @@ int main(void)
 	}
 	else 
 	{
-/*		TWI.stop();
-		TWI.start_wait(I2C_WRITE);
-		TWI.writeXBytes(timeIn,8);
-		TWI.stop();
-*/
+//		TWI.stop();
+//		TWI.start_wait(I2C_WRITE);
+//		TWI.writeXBytes(timeIn,8);
+//		TWI.stop();
+
 		init_T0();
 		sei();
 		while(1)
