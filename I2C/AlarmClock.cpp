@@ -51,7 +51,20 @@ void changeTime(void)
 {
 	lcd_cursor(true,true);
 	lcd_home();
-	
+	 while (!(PIND & (1<<0))){
+		if (PIND & (1<<1))
+		{
+			
+		}
+		else if(PIND & (1<<2))
+		{
+			
+		}
+		else if (PIND & (1<<3))
+		{
+			
+		}
+	 }
 }
 
 ISR(TIMER0_OVF_vect) {
