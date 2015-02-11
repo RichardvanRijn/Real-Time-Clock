@@ -49,14 +49,29 @@ void writeScreen(void)
 
 void changeTime(void)
 {
+	uint8_t x = 0, y = 0;
 	lcd_cursor(true,true);
 	lcd_home();
-	 while (!(PIND & (1<<0))){
+	while (!(PIND & (1<<0))){
 		if (PIND & (1<<1))
 		{
-			
+			if (x == 16)
+			{
+				x = 0;
+				y = 1 - y;
+				lcd_goto(y,x);
+			}
+			else
+			{
+				if (x == 1 || x == 4)
+				{
+					x++;	
+				}
+				x++;
+				lcd_goto(y,x);
+			}
 		}
-		else if(PIND & (1<<2))
+		else if (PIND & (1<<2))
 		{
 			
 		}
