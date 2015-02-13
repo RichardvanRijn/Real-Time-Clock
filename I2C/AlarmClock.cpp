@@ -13,10 +13,11 @@
 char buffer[17];
 unsigned char time[13];
 unsigned char data[7];
-unsigned char temp;
 
-unsigned char index[2][16] = { 5, 4, 16, 3, 2, 16, 1, 0, 16, 16, 16, 16, 16, 16, 16, 16 }
-							 { 8, 7, 16, 10, 9, 16, 12, 11, 16 ,16, 16, 16, 16, 16, 16, 16};
+unsigned char index[2][16] = {
+								{ 5, 4, 16, 3, 2, 16, 1, 0, 16, 16, 16, 16, 16, 16, 16, 16 },
+								{ 8, 7, 16, 10, 9, 16, 12, 11, 16 ,16, 16, 16, 16, 16, 16, 16}
+							 };
 
 I2C TWI(address);
 
@@ -37,7 +38,7 @@ unsigned char decToBcd(unsigned char val)
 	return ((val/10*16) + (val%10) );
 }
 
-unsigned char timeIn[8] = {0x00,	 decToBcd(30), decToBcd(41), decToBcd(17), decToBcd(5),	 decToBcd(6), decToBcd(2), decToBcd(15)};
+//unsigned char timeIn[8] = {0x00,	 decToBcd(30), decToBcd(41), decToBcd(17), decToBcd(5),	 decToBcd(6), decToBcd(2), decToBcd(15)};
 //						   Address	,Seconds,	  Minutes,	   Hours,	    Day of the week, Date,		  month,	   Year.
 
 void writeScreen(void)
@@ -76,13 +77,32 @@ void changeTime(void)
 		}
 		else if (PIND & (1<<2))
 		{
-			time[index[lcd_get_row][lcd_get_column]]++;
+			time[index[lcd_get_row()][lcd_get_column()]]++;
+			writeScreen();
+			lcd_goto(y,x);
 		}
 		else if (PIND & (1<<3))
 		{
-			time[index[lcd_get_row][lcd_get_column]]--;
+			time[index[lcd_get_row()][lcd_get_column()]]--;
+			writeScreen();
+			lcd_goto(y,x);
 		}
-	 }
+	}
+	for (uint8_t i = 0, j = 0; i <= 6 ; i++, j++)
+	{
+		if ( j != 6 )
+		{
+			data[i] = decToBcd(time[j] + (time[j+1] << 4));
+			j++;
+		}
+		else
+		{
+			data[i] = bcdToDec(time[i]);
+		}
+	}
+	TWI.start_wait(I2C_WRITE);
+	TWI.writeXBytes(data,8);
+	TWI.stop();
 }
 
 ISR(TIMER0_OVF_vect) {
@@ -99,7 +119,6 @@ ISR(TIMER0_OVF_vect) {
 			{
 				time[j] = bcdToDec((data[i] & 0x0F));
 				time[j + 1] = bcdToDec(((data[i] >> 4) & 0x0F));
-//				time[i] = bcdToDec(data[i]);
 				j++;
 			}
 			else
@@ -137,11 +156,6 @@ int main(void)
 	}
 	else 
 	{
-//		TWI.stop();
-//		TWI.start_wait(I2C_WRITE);
-//		TWI.writeXBytes(timeIn,8);
-//		TWI.stop();
-
 		init_T0();
 		sei();
 		while(1)
