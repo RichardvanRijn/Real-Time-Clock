@@ -56,8 +56,8 @@ void changeTime(void)
 	uint8_t x = 0, y = 0;
 	lcd_cursor(true,true);
 	lcd_home();
-	while (!(PIND & (1<<0))){
-		if (PIND & (1<<1))
+	while (~PIND & (1<<0)){
+		if (~PIND & (1<<1))
 		{
 			if (x == 16)
 			{
@@ -75,13 +75,13 @@ void changeTime(void)
 				lcd_goto(y,x);
 			}
 		}
-		else if (PIND & (1<<2))
+		else if (~PIND & (1<<2))
 		{
 			time[index[lcd_get_row()][lcd_get_column()]]++;
 			writeScreen();
 			lcd_goto(y,x);
 		}
-		else if (PIND & (1<<3))
+		else if (~PIND & (1<<3))
 		{
 			time[index[lcd_get_row()][lcd_get_column()]]--;
 			writeScreen();
@@ -163,7 +163,7 @@ int main(void)
 			cli();
 			writeScreen();
 			sei();
-			if (PIND & (1<<0))
+			if (~PIND & (1<<0))
 			{
 				changeTime();
 			}
