@@ -28,6 +28,16 @@ void init_T0(void)
 	TIMSK = (1<<TOIE0);
 }
 
+void T1_stop()
+{
+	TIMSK &= ~(1<<TOIE0);
+}
+
+void T1_start()
+{
+	TIMSK |= (1<<TOIE0);
+}
+
 unsigned char bcdToDec(unsigned char val)
 {
 	return ((val/16*10) + (val%16) );
@@ -54,12 +64,16 @@ void writeScreen(void)
 void changeTime(void)
 {
 	uint8_t x = 0, y = 0;
+	T1_stop();
 	lcd_cursor(true,true);
 	lcd_home();
-	while (!(PIND & (1<<0))){
-		if (PIND & (1<<1))
+	while ((PIND & (1<<PD0)) == 1) {}
+	_delay_ms(100);
+	while ((PIND & (1<<PD0)) != 1)			//button 1
+	{
+		if ((PIND & (1<<PD1)) == 2)			//button 2
 		{
-			if (x == 16)
+			if (x == 7)
 			{
 				x = 0;
 				y = 1 - y;
@@ -74,35 +88,46 @@ void changeTime(void)
 				x++;
 				lcd_goto(y,x);
 			}
+			while((PIND & (1<<PD1)) == 2) {}
+			_delay_ms(100);
 		}
-		else if (PIND & (1<<2))
+		else if ((PIND & (1<<PD2)) == 4) //button 3
 		{
 			time[index[lcd_get_row()][lcd_get_column()]]++;
 			writeScreen();
 			lcd_goto(y,x);
+			while ((PIND & (1<<PD2)) == 4) {}
+			_delay_ms(100);
 		}
-		else if (PIND & (1<<3))
+		else if ((PIND & (1<<PD3)) == 8) // button 4
 		{
 			time[index[lcd_get_row()][lcd_get_column()]]--;
 			writeScreen();
 			lcd_goto(y,x);
+			while ((PIND & (1<<PD3)) == 8) {}
+			_delay_ms(100);
 		}
 	}
-	for (uint8_t i = 0, j = 0; i <= 6 ; i++, j++)
+	for (uint8_t i = 1, j = 0; i <= 7 ; i++, j++)
 	{
-		if ( j != 6 )
+		if ( i != 4 )
 		{
-			data[i] = decToBcd(time[j] + (time[j+1] << 4));
+//			data[i] = decToBcd(((time[j] & 0x0F) + (time[j+1] << 4)));
+			data[i] = ((time[j] & 0x0F) + (time[j+1] << 4));
 			j++;
 		}
 		else
 		{
-			data[i] = bcdToDec(time[i]);
+//			data[i] = decToBcd(time[6]);
+			data[i] = time[j];
 		}
 	}
+	data[0] = 0;
 	TWI.start_wait(I2C_WRITE);
 	TWI.writeXBytes(data,8);
 	TWI.stop();
+	T1_start();
+	lcd_cursor(false,false);
 }
 
 ISR(TIMER0_OVF_vect) {
@@ -117,13 +142,16 @@ ISR(TIMER0_OVF_vect) {
 		{
 			if ( i != 3 )
 			{
-				time[j] = bcdToDec((data[i] & 0x0F));
-				time[j + 1] = bcdToDec(((data[i] >> 4) & 0x0F));
+//				time[j] = bcdToDec((data[i] & 0x0F));
+//				time[j + 1] = bcdToDec(((data[i] >> 4) & 0x0F));
+				time[j] = ((data[i] & 0x0F));
+				time[j + 1] = (((data[i] >> 4) & 0x0F));
 				j++;
 			}
 			else
 			{
-				time[j] = bcdToDec(data[i]);
+//				time[j] = bcdToDec(data[i]);
+				time[j] = data[i];
 			}
 		}
 		
@@ -163,9 +191,11 @@ int main(void)
 			cli();
 			writeScreen();
 			sei();
-			if (PIND & (1<<0))
+			if ((PIND & (1<<PD0)) == 1)
 			{
 				changeTime();
+				while((PIND & (1<<PD0)) == 1) {}
+				_delay_ms(100);
 			}
 		}
 	}
