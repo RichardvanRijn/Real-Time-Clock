@@ -17,10 +17,10 @@ public:
 protected:
 private:
 
+unsigned char address;
+
 #define I2C_READ    1
 #define I2C_WRITE   0
-
-unsigned char address;
 
 //functions
 public:
@@ -49,7 +49,7 @@ private:
 	unsigned char write(unsigned char data);
 	unsigned char readAck(void);
 	unsigned char readNak(void);
-	
+		
 }; //I2C
 
 #endif //__I2C_H__
