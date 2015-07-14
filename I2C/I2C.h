@@ -10,17 +10,16 @@
 #ifndef __I2C_H__
 #define __I2C_H__
 
+#define I2C_READ    1
+#define I2C_WRITE   0
+
 class I2C
 {
 //variables
 public:
 protected:
 private:
-
-unsigned char address;
-
-#define I2C_READ    1
-#define I2C_WRITE   0
+	unsigned char address;
 
 //functions
 public:
@@ -33,8 +32,8 @@ public:
 	void start_wait(unsigned char RW);
 	void stop(void);
 	
-	unsigned char read_address(void);
 	void new_address(unsigned char newaddress);
+	unsigned char get_address(void);
 	
 	void readXBytes(unsigned char data[], unsigned char amount, unsigned char startAddress);
 	

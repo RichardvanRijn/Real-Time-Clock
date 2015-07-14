@@ -1,3 +1,7 @@
+#ifndef F_CPU
+#define F_CPU 4000000UL
+#endif
+
 #include <stdio.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
@@ -11,15 +15,34 @@
 #define address 0xD0
 
 char buffer[17];
-unsigned char time[13];
-unsigned char data[7];
+unsigned char realTime[7];
+unsigned char data[8];
+
+unsigned char alarmTime[7] = {0,0,0,0,0,0,0};
+	
+bool alarmSet = false;
 
 I2C TWI(address);
 
 unsigned char index[2][16] ={
-							{ 5, 4, 16, 3, 2, 16, 1, 0, 16, 16, 16, 16, 16, 16, 16, 16 },
-							{ 8, 7, 16, 10, 9, 16, 12, 11, 16 ,16, 16, 16, 16, 16, 16, 16}
+							{ 2, 2, 16, 1, 1, 16, 0, 0, 16, 16, 16, 16, 16, 16, 16, 16 },
+							{ 4, 4, 16, 5, 5, 16, 6, 6, 16 ,16, 16, 16, 16, 16, 16, 16 }
 							};
+
+unsigned char MaxVal[2][8] = {
+							 { 23,23,0,59,59,0,59,59 },
+							 { 31,31,0,12,12,0,99,99 }
+							 };
+							 
+unsigned char bcdToDec(unsigned char val)
+{
+	return ((val/16*10) + (val%16) );
+}
+
+unsigned char decToBcd(unsigned char val)
+{
+	return ((val/10*16) + (val%10) );
+}
 
 void init_T0(void)
 {
@@ -31,13 +54,14 @@ void init_T0(void)
 void init_lcd(void)
 {
 	lcd_init();
-	lcd_cursor(false, false);							//  cursor off
+	lcd_cursor(false, false);								//  cursor off
 	lcd_home();
 }
 
 void init(void)
 {
 	DDRD = 0x00;
+	DDRB = 0xFF;
 	init_lcd();
 	TWI.init();												// Function to initialize TWI
 	unsigned char ret = TWI.start(I2C_WRITE);				// set device address and write mode
@@ -48,6 +72,13 @@ void init(void)
 		snprintf(buffer, sizeof buffer, "Failed");
 		lcd_puts(buffer);
 		lcd_home();
+	}
+	TWI.start_wait(I2C_WRITE);						// set device address and write mode
+	TWI.readXBytes(data,7,0x00);
+	TWI.stop();
+	for (uint8_t i = 0; i <= 6 ; i++)
+	{
+		realTime[i] = bcdToDec(data[i]);
 	}
 	init_T0();
 }
@@ -62,46 +93,85 @@ void t1_Start_TOI(void)
 	TIMSK |= (1<<TOIE0);
 }
 
-unsigned char bcdToDec(unsigned char val)
+void Alarm_start(void)
 {
-	return ((val/16*10) + (val%16) );
+	PORTB = 0x01;
 }
 
-unsigned char decToBcd(unsigned char val)
+void Alarm_stop(void)
 {
-	return ((val/10*16) + (val%10) );
+	PORTB = 0x00;
 }
 
-//unsigned char timeIn[8] = {0x00,	 decToBcd(30), decToBcd(41), decToBcd(17), decToBcd(5),	 decToBcd(6), decToBcd(2), decToBcd(15)};
-//						   Address	,Seconds,	  Minutes,	   Hours,	    Day of the week, Date,		  month,	   Year.
+//
+//unsigned char timeIn[7] = {	decToBcd(30), decToBcd(41), decToBcd(17), decToBcd(5),	 decToBcd(6), decToBcd(2), decToBcd(15)};
+//								Seconds,	  Minutes,	   Hours,	    Day of the week, Date,		  month,	   Year.
 
-void writeScreen(void)
+void writeScreen(unsigned char time[])
 {
 	lcd_home();
-	snprintf(buffer, sizeof buffer, "%d%d:%d%d:%d%d",time[5],time[4],time[3],time[2],time[1],time[0]);
-	lcd_puts(buffer);
+	for(int8_t i = 2;i>=0;i--)
+	{
+		if (time[i] < 10)
+		{
+			lcd_putc('0');	
+		}
+		snprintf(buffer,sizeof buffer,"%d",time[i]);
+		lcd_puts(buffer);
+		if(i>0)
+		{
+			lcd_putc(':');	
+		}
+	}
 	lcd_goto(1,0);
-	snprintf(buffer, sizeof buffer, "%d%d:%d%d:%d%d",time[8],time[7],time[10],time[9],time[12],time[11]);
-	lcd_puts(buffer);
+	for(int8_t i = 4;i<=6;i++)
+	{
+		if (time[i] < 10)
+		{
+			lcd_putc('0');
+		}
+		snprintf(buffer,sizeof buffer,"%d",time[i]);
+		lcd_puts(buffer);
+		if(i<6)
+		{
+			lcd_putc(':');
+		}
+	}
+	lcd_goto(0,15);
+	if (alarmSet == true){
+		lcd_putc('A');
+	}
+	else
+	{
+		lcd_putc(' ');
+	}	
 }
 
-void changeTime(void)
+void changeTime(bool alarm,unsigned char time[])
 {
 	uint8_t x = 0, y = 0;
+	writeScreen(time);
 	t1_Stop_TOI();
 	lcd_cursor(true,true);
 	lcd_home();
-	while ((PIND & (1<<PD0)) == 1) {}
-	_delay_ms(100);
-	while ((PIND & (1<<PD0)) != 1)						//button 1
+	if (alarm == false)
 	{
-		if ((PIND & (1<<PD1)) == 2)						//button 2
+		while ((PIND & (1<<PD0)) == (1<<PD0)) {}
+		_delay_ms(25);
+	}
+	else
+	{
+		while ((PIND & (1<<PD4)) == (1<<PD4)) {}
+		_delay_ms(25);
+	}
+	while ((PIND & (1<<PD0)) != (1<<PD0))						//button 1
+	{
+		if ((PIND & (1<<PD1)) == (1<<PD1))						//button 2
 		{
 			if (x == 7)
 			{
 				x = 0;
 				y = 1 - y;
-				lcd_goto(y,x);
 			}
 			else
 			{
@@ -110,44 +180,64 @@ void changeTime(void)
 					x++;	
 				}
 				x++;
-				lcd_goto(y,x);
 			}
+			lcd_goto(y,x);
 			while((PIND & (1<<PD1)) == 2) {}
-			_delay_ms(100);
+			_delay_ms(25);
 		}
-		else if ((PIND & (1<<PD2)) == 4)				//button 3
+		else if ((PIND & (1<<PD2)) == (1<<PD2))				//button 3	UP
 		{
-			time[index[lcd_get_row()][lcd_get_column()]]++;
-			writeScreen();
+			if (x == 0 || x == 3 || x == 6)
+			{
+				time[index[lcd_get_row()][lcd_get_column()]] += 10;
+			}
+			else
+			{
+				time[index[lcd_get_row()][lcd_get_column()]] ++;
+			}
+			if (time[index[lcd_get_row()][lcd_get_column()]] >= MaxVal[lcd_get_row()][lcd_get_column()])
+			{
+				time[index[lcd_get_row()][lcd_get_column()]] -= MaxVal[lcd_get_row()][lcd_get_column()];
+			}
+			writeScreen(time);
 			lcd_goto(y,x);
 			while ((PIND & (1<<PD2)) == 4) {}
-			_delay_ms(100);
+			_delay_ms(25);
 		}
-		else if ((PIND & (1<<PD3)) == 8)				// button 4
+		else if ((PIND & (1<<PD3)) == (1<<PD3))				//button 4	Down
 		{
-			time[index[lcd_get_row()][lcd_get_column()]]--;
-			writeScreen();
+			if (x == 0 || x == 3 || x == 6){
+				time[index[lcd_get_row()][lcd_get_column()]] -= 10;
+			}
+			else
+			{
+				time[index[lcd_get_row()][lcd_get_column()]] --;
+			}
+			if (time[index[lcd_get_row()][lcd_get_column()]] >= MaxVal[lcd_get_row()][lcd_get_column()])
+			{
+				time[index[lcd_get_row()][lcd_get_column()]] += MaxVal[lcd_get_row()][lcd_get_column()];
+			}
+			writeScreen(time);
 			lcd_goto(y,x);
-			while ((PIND & (1<<PD3)) == 8) {}
-			_delay_ms(100);
+			while ((PIND & (1<<PD3)) == (1<<PD3)) {}
+			_delay_ms(25);
 		}
 	}
-	for (uint8_t i = 1, j = 0; i <= 7 ; i++, j++)
+	if(alarm == false)
 	{
-		if ( i != 4 )
+		for (uint8_t i = 1; i <= 7 ; i++)
 		{
-			data[i] = ((time[j] & 0x0F) + (time[j+1] << 4));
-			j++;
+			data[i] = decToBcd(time[i-1]);
 		}
-		else
-		{
-			data[i] = time[j];
-		}
+		data[0] = 0;
+		TWI.start_wait(I2C_WRITE);
+		TWI.writeXBytes(data,8);
+		TWI.stop();
 	}
-	data[0] = 0;
-	TWI.start_wait(I2C_WRITE);
-	TWI.writeXBytes(data,8);
-	TWI.stop();
+	else
+	{
+		writeScreen(realTime);	
+	}
 	t1_Start_TOI();
 	lcd_cursor(false,false);
 }
@@ -156,21 +246,12 @@ ISR(TIMER0_OVF_vect) {
 	static unsigned char x = 0;
 	if ( x == 15 )
 	{
-		TWI.start_wait(I2C_WRITE);			// set device address and write mode
+		TWI.start_wait(I2C_WRITE);						// set device address and write mode
 		TWI.readXBytes(data,7,0x00);
 		TWI.stop();
-		for (uint8_t i = 0, j = 0; i <= 6 ; i++, j++)
+		for (uint8_t i = 0; i <= 6 ; i++)
 		{
-			if ( i != 3 )
-			{
-				time[j] = ((data[i] & 0x0F));
-				time[j + 1] = (((data[i] >> 4) & 0x0F));
-				j++;
-			}
-			else
-			{
-				time[j] = data[i];
-			}
+			realTime[i] = bcdToDec(data[i]);
 		}
 		x = 0;
 	}
@@ -188,13 +269,32 @@ int main(void)
 	while(1)
 	{
 		cli();
-		writeScreen();
+		writeScreen(realTime);
 		sei();
-		if ((PIND & (1<<PD0)) == 1)
+		if ((PIND & (1<<PD0)) == (1<<PD0))
 		{
-			changeTime();
-			while((PIND & (1<<PD0)) == 1) {}
-			_delay_ms(100);
+			changeTime(false, realTime);
+			while((PIND & (1<<PD0)) == (1<<PD0)) {}
+			_delay_ms(25);
+		}
+		if ((PIND & (1<<PD4)) == (1<<PD4))
+		{
+			changeTime(true, alarmTime);
+			while((PIND & (1<<PD0)) == (1<<PD0)) {}
+			_delay_ms(25);
+		}
+		if ((PIND & (1<<PD6)) == (1<<PD6))
+		{
+			alarmSet = true;
+			if (realTime[0] == alarmTime[0] && realTime[1] == alarmTime[1] && realTime[2] == alarmTime[2])
+			{
+				Alarm_start();
+			}
+		}
+		else
+		{
+			alarmSet = false;
+			Alarm_stop();
 		}
 	}
 }

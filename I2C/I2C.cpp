@@ -35,6 +35,12 @@ void I2C::new_address(unsigned char newaddress)
 	address = newaddress;
 }
 
+unsigned char I2C::get_address(void)
+{
+	return address;
+}
+
+
 unsigned char I2C::start(unsigned char RW)
 {
 	uint8_t   twst;
@@ -110,11 +116,6 @@ unsigned char I2C::readNak(void)
 	return TWDR;
 }
 
-unsigned char I2C::read_address(void)
-{
-	return address;
-}
-
 void I2C::readXBytes(unsigned char data[], unsigned char amount, unsigned char startAddress)	//data[x] : x >= amount
 {
 //	if ((sizeof (data)/sizeof (data[0])) >= amount){
@@ -138,6 +139,3 @@ void I2C::writeXBytes(unsigned char data[], unsigned int amount)	//data[x] : x >
 I2C::~I2C()
 {
 } //~I2C
-
-
-
