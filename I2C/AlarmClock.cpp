@@ -12,7 +12,7 @@
 #include "lcd.h"
 #include "I2C.h"
 
-#define address 0xD0
+#define address 0x68
 
 char buffer[17];
 unsigned char realTime[7];
@@ -20,21 +20,21 @@ unsigned char data[8];
 
 unsigned char alarmTime[7];
 unsigned char EEMEM alarmTimeEEMEM[7];
-	
+
 bool alarmSet = false;
 
 I2C TWI(address);
 
 unsigned char index[2][16] ={
-							{ 2, 2, 16, 1, 1, 16, 0, 0, 16, 16, 16, 16, 16, 16, 16, 16 },
-							{ 4, 4, 16, 5, 5, 16, 6, 6, 16 ,16, 16, 16, 16, 16, 16, 16 }
-							};
+	{ 2, 2, 16, 1, 1, 16, 0, 0, 16, 16, 16, 16, 16, 16, 16, 16 },
+	{ 4, 4, 16, 5, 5, 16, 6, 6, 16 ,16, 16, 16, 16, 16, 16, 16 }
+};
 
 unsigned char MaxVal[2][8] = {
-							 { 23,23,0,59,59,0,59,59 },
-							 { 31,31,0,12,12,0,99,99 }
-							 };
-							 
+	{ 23,23,0,59,59,0,59,59 },
+	{ 31,31,0,12,12,0,99,99 }
+};
+
 unsigned char bcdToDec(unsigned char val)
 {
 	return ((val/16*10) + (val%16) );
@@ -116,13 +116,13 @@ void writeScreen(unsigned char time[], bool alarm)
 	{
 		if (time[i] < 10)
 		{
-			lcd_putc('0');	
+			lcd_putc('0');
 		}
 		snprintf(buffer,sizeof buffer,"%d",time[i]);
 		lcd_puts(buffer);
 		if(i>0)
 		{
-			lcd_putc(':');	
+			lcd_putc(':');
 		}
 	}
 	lcd_goto(1,0);
@@ -154,10 +154,10 @@ void writeScreen(unsigned char time[], bool alarm)
 	else
 	{
 		lcd_putc(' ');
-	}	
+	}
 }
 
-void changeTime(bool alarm,unsigned char time[])
+void changeTime(bool alarm, unsigned char time[])
 {
 	uint8_t x = 0, y = 0;
 	writeScreen(time, alarm);
@@ -165,7 +165,7 @@ void changeTime(bool alarm,unsigned char time[])
 	lcd_cursor(true,true);
 	lcd_home();
 	while ((PIND & (1<<PD0)) == (1<<PD0)) {}
-	_delay_ms(25);
+	_delay_ms(10);
 	while ((PIND & (1<<PD0)) != (1<<PD0))						//button 1
 	{
 		if ((PIND & (1<<PD1)) == (1<<PD1))						//button 2
@@ -173,19 +173,22 @@ void changeTime(bool alarm,unsigned char time[])
 			if (x == 7)
 			{
 				x = 0;
-				y = 1 - y;
+				if(alarm == false)
+				{
+					y = 1 - y;
+				}
 			}
 			else
 			{
 				if (x == 1 || x == 4)
 				{
-					x++;	
+					x++;
 				}
 				x++;
 			}
 			lcd_goto(y,x);
 			while((PIND & (1<<PD1)) == 2) {}
-			_delay_ms(25);
+			_delay_ms(10);
 		}
 		else if ((PIND & (1<<PD2)) == (1<<PD2))				//button 3	UP
 		{
@@ -204,7 +207,7 @@ void changeTime(bool alarm,unsigned char time[])
 			writeScreen(time, alarm);
 			lcd_goto(y,x);
 			while ((PIND & (1<<PD2)) == 4) {}
-			_delay_ms(25);
+			_delay_ms(10);
 		}
 		else if ((PIND & (1<<PD3)) == (1<<PD3))				//button 4	Down
 		{
@@ -222,7 +225,7 @@ void changeTime(bool alarm,unsigned char time[])
 			writeScreen(time, alarm);
 			lcd_goto(y,x);
 			while ((PIND & (1<<PD3)) == (1<<PD3)) {}
-			_delay_ms(25);
+			_delay_ms(10);
 		}
 	}
 	if(alarm == false)
@@ -240,7 +243,7 @@ void changeTime(bool alarm,unsigned char time[])
 	else
 	{
 		eeprom_write_block(&alarmTime, &alarmTimeEEMEM, 7);
-		writeScreen(realTime, false);	
+		writeScreen(realTime, false);
 	}
 	t1_Start_TOI();
 	lcd_cursor(false,false);
@@ -279,7 +282,7 @@ int main(void)
 		{
 			changeTime(false, realTime);
 			while((PIND & (1<<PD0)) == (1<<PD0)) {}
-			_delay_ms(25);
+			_delay_ms(10);
 		}
 		if (alarmSet == true)
 		{
@@ -287,15 +290,15 @@ int main(void)
 			{
 				Alarm_start();
 			}
+		}
+		if((PIND & (1<<PD6)) == (1<<PD6))
+		{
+			alarmSet = !alarmSet;
 			if((PORTB & (1<<PD0)) == (1<<PD0))
 			{
 				Alarm_stop();
 				alarmSet = false;
 			}
-		}
-		if((PIND & (1<<PD6)) == (1<<PD6))
-		{
-			alarmSet = !alarmSet;
 			while((PIND & (1<<PD6)) == (1<<PD6)) {}
 		}
 	}

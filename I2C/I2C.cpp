@@ -21,7 +21,7 @@
 // default constructor
 I2C::I2C():address(0) {}
 
-I2C::I2C(unsigned char newaddress) : address(newaddress) {}
+I2C::I2C(unsigned char newaddress) : address(newaddress<<1) {}
 
 void I2C::init(void)
 {
@@ -32,14 +32,13 @@ void I2C::init(void)
 
 void I2C::new_address(unsigned char newaddress)
 {
-	address = newaddress;
+	address = newaddress<<1;
 }
 
 unsigned char I2C::get_address(void)
 {
-	return address;
+	return address>>1;
 }
-
 
 unsigned char I2C::start(unsigned char RW)
 {

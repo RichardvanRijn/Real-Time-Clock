@@ -13,6 +13,12 @@
 #define I2C_READ    1
 #define I2C_WRITE   0
 
+#define adressAmmount 1
+
+#if adressAmmount < 1
+#error adressAmmount to low
+#endif
+
 class I2C
 {
 //variables
@@ -20,11 +26,13 @@ public:
 protected:
 private:
 	unsigned char address;
+	unsigned char addresses[adressAmmount];
 
 //functions
 public:
 	I2C();
 	I2C(unsigned char newaddress);
+	I2C(unsigned char newaddress[]);
 	
 	void init(void);
 	unsigned char start(unsigned char RW);
